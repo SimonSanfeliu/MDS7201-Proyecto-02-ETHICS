@@ -35,3 +35,9 @@ Con el dataset generado en el archivo anterior, se corre la misma rutina que el 
 ### utils_GPT
 
 Dada la naturaleza del dataset generado con GPT, se tuvieron que hacer ciertos cambios en las funciones para que la rutina de Interpretabilidad_GPT corriera de forma correcta.
+
+## Extra
+
+### Sanky_diagram
+
+Notebook para la generación de gráfico Sankey de "dataset_{caso}.csv".
