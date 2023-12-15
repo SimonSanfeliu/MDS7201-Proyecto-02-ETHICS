@@ -233,14 +233,23 @@ def summary_plot(model, df_train, title):
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(df_train)
 
+    classes = model.classes_
+    labels = ['No hay cambio'] * 3
+    labels[np.argmax(classes)] = 'Cambio hacia la derecha: No usar información'
+    labels[np.argmin(classes)] = 'Cambio hacia la izquierda: Usar información'
+
     plt.title(title)
     shap.summary_plot(
         shap_values, 
         df_train, 
         plot_type='bar', 
-        class_names=model.classes_, 
-        show=False
+        class_names=labels,
+        show=False,
+        max_display=10,
+        plot_size=0.35
     )
+
+    plt.savefig(f'xgb_summary_plot.pdf', bbox_inches='tight')
     plt.show()
 
 def individual_explanation(idx, model, df_train, title):
