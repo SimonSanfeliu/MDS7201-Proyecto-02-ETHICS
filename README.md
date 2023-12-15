@@ -32,6 +32,10 @@ Notebook en donde se corre la rutina para generar un dataset explicativo por est
 
 Con el dataset generado en el archivo anterior, se corre la misma rutina que el notebook homólogo de Pipeline para estudiar los mismos casos. Se edita respecta a la versión anterior para poder trabajar con el nuevo dataset.
 
+### price_estimation
+
+Notebook en donde se estima el precio que costará la utilización de la API de OpenAI. Se calcula el peor caso posible (respecto a chat y justificaciones), para hacer un estimado genérico para el total.
+
 ### utils_GPT
 
 Dada la naturaleza del dataset generado con GPT, se tuvieron que hacer ciertos cambios en las funciones para que la rutina de Interpretabilidad_GPT corriera de forma correcta.
