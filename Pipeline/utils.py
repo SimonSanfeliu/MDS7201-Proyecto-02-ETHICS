@@ -46,159 +46,155 @@ class ColumnExtractor(BaseEstimator, TransformerMixin):
     def transform(self, X):
         return X[self.columns]
 
-def remove_punctuation(text):
-    text = re.sub(r'[^\w\s]', '', text)
-    return text
-
 # PREPROCESAMIENTO DE COLUMNAS CATEGÓRICAS
 def cat_cols_preprocessing(dataset, gender=False):
-	categorical_columns = ['sel_Ind1', 'sel_Grup','sel_Ind2']
-	if gender: genders = [dataset.gender.unique().tolist()]
+    categorical_columns = ['sel_Ind1', 'sel_Grup','sel_Ind2']
+    if gender: genders = [dataset.gender.unique().tolist()]
 
-	transformers = [('sel_etapa', 
-		Pipeline([('ordinal_encoder', OrdinalEncoder())]), 
-		categorical_columns)
-	]
+    transformers = [('sel_etapa', 
+        Pipeline([('ordinal_encoder', OrdinalEncoder())]), 
+        categorical_columns)
+    ]
 
-	if gender: transformers.append(('gender', 
-		Pipeline([
-			('extract', ColumnExtractor(columns=['gender'])),
-			('onehot_encoder', OneHotEncoder(sparse_output=False, categories=genders))
-		]), 
-		['gender']))
+    if gender: transformers.append(('gender', 
+        Pipeline([
+            ('extract', ColumnExtractor(columns=['gender'])),
+            ('onehot_encoder', OneHotEncoder(sparse_output=False, categories=genders))
+        ]), 
+        ['gender']))
 
-	categorical_preprocessing = ColumnTransformer(
-	    transformers=transformers,
-	    remainder='drop'
-	)
+    categorical_preprocessing = ColumnTransformer(
+        transformers=transformers,
+        remainder='drop'
+    )
 
-	categorical_pipeline = Pipeline([
-	    ('categorical_preprocessing', categorical_preprocessing)
-	])
+    categorical_pipeline = Pipeline([
+        ('categorical_preprocessing', categorical_preprocessing)
+    ])
 
-	categorical_transformed_data = categorical_pipeline.fit_transform(dataset)
+    categorical_transformed_data = categorical_pipeline.fit_transform(dataset)
 
-	if gender: 
-		gender_column_names = [f'gender:{category}' for category in genders[0]]
-		categorical_columns = categorical_columns+gender_column_names
+    if gender: 
+        gender_column_names = [f'gender:{category}' for category in genders[0]]
+        categorical_columns = categorical_columns+gender_column_names
 
-	categorical_transformed_df = pd.DataFrame(categorical_transformed_data, columns=categorical_columns)
+    categorical_transformed_df = pd.DataFrame(categorical_transformed_data, columns=categorical_columns)
 
-	return categorical_transformed_df, categorical_preprocessing, categorical_pipeline
+    return categorical_transformed_df, categorical_preprocessing, categorical_pipeline
 
 # PREPROCESAMIENTO DE COLUMNAS TEXTUALES
 def text_cols_preprocessing(dataset, comment_Ind2=True):
-	text_columns = ['summary', 'comment_Ind1', 'comment_Grup']
+    text_columns = ['summary', 'comment_Ind1', 'comment_Grup']
 
-	if comment_Ind2: text_columns.append('comment_Ind2')
+    if comment_Ind2: text_columns.append('comment_Ind2')
 
-	for col in text_columns:
-	    dataset[col] = dataset[col].apply(remove_punctuation)
+    for col in text_columns:
+        dataset[col] = dataset[col].fillna('')
 
-	bog = CountVectorizer(
-	    tokenizer=StemmerTokenizer(),
-	    ngram_range=(1,1),
-	    token_pattern=None
-	)
+    bog = CountVectorizer(
+        tokenizer=StemmerTokenizer(),
+        ngram_range=(1,1),
+        token_pattern=None
+    )
 
-	if comment_Ind2:
-		transformers=[
-			('Ind1', bog, 'comment_Ind1'),
-		    ('Grup', bog, 'comment_Grup'),
-		    ('Ind2', bog, 'comment_Ind2'),
-		    ('Chat', bog, 'summary'),
-		]
+    if comment_Ind2:
+        transformers=[
+            ('Ind1', bog, 'comment_Ind1'),
+            ('Grup', bog, 'comment_Grup'),
+            ('Ind2', bog, 'comment_Ind2'),
+            ('Chat', bog, 'summary'),
+        ]
 
-	else:
-		transformers=[
-			('Ind1', bog, 'comment_Ind1'),
-		    ('Grup', bog, 'comment_Grup'),
-		    ('Chat', bog, 'summary'),
-		]
+    else:
+        transformers=[
+            ('Ind1', bog, 'comment_Ind1'),
+            ('Grup', bog, 'comment_Grup'),
+            ('Chat', bog, 'summary'),
+        ]
 
-	# Procesamos cada columna con su propio bag-of-words
-	text_preprocessing = ColumnTransformer(
-	    transformers=transformers,
-	    remainder='drop'
-	)
+    # Procesamos cada columna con su propio bag-of-words
+    text_preprocessing = ColumnTransformer(
+        transformers=transformers,
+        remainder='drop'
+    )
 
-	text_pipeline = Pipeline([
-	    ("text_preprocessing", text_preprocessing)
-	])
+    text_pipeline = Pipeline([
+        ("text_preprocessing", text_preprocessing)
+    ])
 
-	text_transformed_data = text_pipeline.fit_transform(dataset).toarray()
+    text_transformed_data = text_pipeline.fit_transform(dataset).toarray()
 
-	feature_names_combined = text_pipeline.named_steps['text_preprocessing'].get_feature_names_out()
-	text_transformed_df = pd.DataFrame(text_transformed_data, columns=feature_names_combined)
+    feature_names_combined = text_pipeline.named_steps['text_preprocessing'].get_feature_names_out()
+    text_transformed_df = pd.DataFrame(text_transformed_data, columns=feature_names_combined)
 
-	return text_transformed_df, text_preprocessing, text_pipeline
+    return text_transformed_df, text_preprocessing, text_pipeline
 
 # PREPROCESAMIENTO
 def preprocessing(dataset, test_size=.2, gender=False, comment_Ind2=True, sel_Ind1=True):
-	categorical_transformed_df, categorical_preprocessing, categorical_pipeline = cat_cols_preprocessing(dataset, gender)
-	text_transformed_df, text_preprocessing, text_pipeline = text_cols_preprocessing(dataset, comment_Ind2)
+    categorical_transformed_df, categorical_preprocessing, categorical_pipeline = cat_cols_preprocessing(dataset, gender)
+    text_transformed_df, text_preprocessing, text_pipeline = text_cols_preprocessing(dataset, comment_Ind2)
 
-	# Concatenamos las columnas categóricas y las columnas de texto
-	data = pd.concat([categorical_transformed_df, text_transformed_df], axis=1)
+    # Concatenamos las columnas categóricas y las columnas de texto
+    data = pd.concat([categorical_transformed_df, text_transformed_df], axis=1)
 
-	# Generamos los labels
-	data['labels'] = np.sign(data['sel_Ind2'] - data['sel_Ind1'])
-	data = data.drop(columns=['sel_Ind2'])
+    # Generamos los labels
+    data['labels'] = np.sign(data['sel_Ind2'] - data['sel_Ind1'])
+    data = data.drop(columns=['sel_Ind2'])
 
-	if not sel_Ind1:
-		data = data.drop(columns=['sel_Ind1'])
+    if not sel_Ind1:
+        data = data.drop(columns=['sel_Ind1'])
 
-	# Separamos en train (80%) y test (20%)
-	df_train, df_test, y_train, y_test = train_test_split(data, data['labels'], test_size=test_size, stratify=data['labels'], random_state=42)
-	df_train, df_test = df_train.drop(columns=['labels']), df_test.drop(columns=['labels'])
-	
-	return df_train, df_test, y_train, y_test, categorical_preprocessing, text_preprocessing
+    # Separamos en train (80%) y test (20%)
+    df_train, df_test, y_train, y_test = train_test_split(data, data['labels'], test_size=test_size, stratify=data['labels'], random_state=42)
+    df_train, df_test = df_train.drop(columns=['labels']), df_test.drop(columns=['labels'])
+    
+    return df_train, df_test, y_train, y_test, categorical_preprocessing, text_preprocessing
 
 # MODELOS
 def train_models(df_train, df_test, y_train, y_test, grid_rf, grid_xgb):
-	# Dummy classifier
-	dummy_model = DummyClassifier()
-	dummy_model.fit(df_train, y_train)
+    # Dummy classifier
+    dummy_model = DummyClassifier()
+    dummy_model.fit(df_train, y_train)
 
-	y_pred = dummy_model.predict(df_test)
-	print('Dummy classifier')
-	print(classification_report(y_test, y_pred, zero_division=0.0))
+    y_pred = dummy_model.predict(df_test)
+    print('Dummy classifier')
+    print(classification_report(y_test, y_pred, zero_division=0.0))
 
-	# Random Forest classifier
-	rf_model = RandomForestClassifier(random_state=42)
-	grid_search = GridSearchCV(estimator=rf_model, param_grid=grid_rf, cv=5, n_jobs=-1, scoring='accuracy')
-	grid_search.fit(df_train, y_train)
-	rf_best_model = grid_search.best_estimator_
-	rf_best_model.fit(df_train, y_train)
+    # Random Forest classifier
+    rf_model = RandomForestClassifier(random_state=42)
+    grid_search = GridSearchCV(estimator=rf_model, param_grid=grid_rf, cv=5, n_jobs=-1, scoring='accuracy')
+    grid_search.fit(df_train, y_train)
+    rf_best_model = grid_search.best_estimator_
+    rf_best_model.fit(df_train, y_train)
 
-	y_pred = rf_best_model.predict(df_test)
+    y_pred = rf_best_model.predict(df_test)
 
-	print('Random Forest classifier')
-	best_params = grid_search.best_params_
-	print("Best Hyperparameters:", best_params)
-	print(classification_report(y_test, y_pred, zero_division=0.0))
+    print('Random Forest classifier')
+    best_params = grid_search.best_params_
+    print("Best Hyperparameters:", best_params)
+    print(classification_report(y_test, y_pred, zero_division=0.0))
 
-	# XG Boost classifier
-	label_mapping = {-1: 0, 0: 1, 1: 2}
-	y_train_xgb = y_train.map(label_mapping)
+    # XG Boost classifier
+    label_mapping = {-1: 0, 0: 1, 1: 2}
+    y_train_xgb = y_train.map(label_mapping)
 
-	xgb_model = XGBClassifier(random_state=42)
-	grid_search = GridSearchCV(estimator=xgb_model, param_grid=grid_xgb, cv=5, n_jobs=-1, scoring='accuracy')
-	grid_search.fit(df_train, y_train_xgb)
-	xgb_best_model = grid_search.best_estimator_
-	xgb_best_model.fit(df_train, y_train_xgb)
+    xgb_model = XGBClassifier(random_state=42)
+    grid_search = GridSearchCV(estimator=xgb_model, param_grid=grid_xgb, cv=5, n_jobs=-1, scoring='accuracy')
+    grid_search.fit(df_train, y_train_xgb)
+    xgb_best_model = grid_search.best_estimator_
+    xgb_best_model.fit(df_train, y_train_xgb)
 
-	label_mapping = {0: -1, 1: 0, 2: 1}
-	y_pred = xgb_best_model.predict(df_test)
-	vfunc = np.vectorize(lambda x: label_mapping[x])
-	y_pred = vfunc(y_pred)
+    label_mapping = {0: -1, 1: 0, 2: 1}
+    y_pred = xgb_best_model.predict(df_test)
+    vfunc = np.vectorize(lambda x: label_mapping[x])
+    y_pred = vfunc(y_pred)
 
-	print('XGBoost classifier')
-	best_params = grid_search.best_params_
-	print("Best Hyperparameters:", best_params)
-	print(classification_report(y_test, y_pred, zero_division=0.0))
+    print('XGBoost classifier')
+    best_params = grid_search.best_params_
+    print("Best Hyperparameters:", best_params)
+    print(classification_report(y_test, y_pred, zero_division=0.0))
 
-	return dummy_model, rf_best_model, xgb_best_model
+    return dummy_model, rf_best_model, xgb_best_model
 
 def plot_importance_models(rf_best_model, xgb_best_model):
     # RandomForest classifier
