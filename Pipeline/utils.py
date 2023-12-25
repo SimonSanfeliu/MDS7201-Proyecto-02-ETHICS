@@ -219,14 +219,24 @@ def plot_importance_models(rf_best_model, xgb_best_model):
 
     plt.show()
 
-def summary_plot(model, df_train, title):
+def summary_plot(model, df_train, title, df=0):
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(df_train)
-
+    
     classes = model.classes_
     labels = ['No hay cambio'] * 3
-    labels[np.argmax(classes)] = 'Cambio hacia la derecha: No usar información'
-    labels[np.argmin(classes)] = 'Cambio hacia la izquierda: Usar información'
+
+    if df == 0:
+        labels[np.argmax(classes)] = 'Cambio hacia la derecha'
+        labels[np.argmin(classes)] = 'Cambio hacia la izquierda'
+        
+    if df == 1:
+        labels[np.argmax(classes)] = 'Cambio hacia la derecha: Algoritmo Y'
+        labels[np.argmin(classes)] = 'Cambio hacia la izquierda: Algoritmo X'
+        
+    if df == 2:
+        labels[np.argmax(classes)] = 'Cambio hacia la derecha: Algoritmo Z'
+        labels[np.argmin(classes)] = 'Cambio hacia la izquierda: Algoritmo W'
 
     plt.title(title)
     shap.summary_plot(
